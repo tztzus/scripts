@@ -1,0 +1,222 @@
+--[[
+	WARNING: Heads up! This script has not been verified by ScriptBlox. Use at your own risk!
+]]
+-- Synt.t GUI Full Edition
+local player = game.Players.LocalPlayer
+local char = player.Character or player.CharacterAdded:Wait()
+local mouse = player:GetMouse()
+
+local gui = Instance.new("ScreenGui", game.CoreGui)
+gui.Name = "SyntGui"
+
+local frame = Instance.new("Frame", gui)
+frame.Size = UDim2.new(0, 360, 0, 600)
+frame.Position = UDim2.new(0.3, 0, 0.2, 0)
+frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+frame.Active = true
+frame.Draggable = true
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 12)
+
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1, 0, 0, 40)
+title.Text = "🌈 Made by synt.t on Discord"
+title.BackgroundTransparency = 1
+title.Font = Enum.Font.GothamBold
+title.TextSize = 20
+title.TextColor3 = Color3.fromHSV(0,1,1)
+spawn(function()
+	while wait() do title.TextColor3 = Color3.fromHSV(tick()%5/5,1,1) end
+end)
+
+local yOffset = 45
+local function createButton(text, callback)
+	local btn = Instance.new("TextButton", frame)
+	btn.Size = UDim2.new(0.9, 0, 0, 30)
+	btn.Position = UDim2.new(0.05, 0, 0, yOffset)
+	btn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+	btn.Font = Enum.Font.Gotham
+	btn.TextColor3 = Color3.new(1,1,1)
+	btn.TextSize = 16
+	btn.Text = text.." [OFF]"
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+	local toggle = false
+	btn.MouseButton1Click:Connect(function()
+		toggle = not toggle
+		btn.Text = text.." ["..(toggle and "ON" or "OFF").."]"
+		callback(toggle)
+	end)
+	yOffset += 35
+end
+
+local function createBox(text, default, callback)
+	local lbl = Instance.new("TextLabel", frame)
+	lbl.Size = UDim2.new(0.9, 0, 0, 20)
+	lbl.Position = UDim2.new(0.05, 0, 0, yOffset)
+	lbl.BackgroundTransparency = 1
+	lbl.Text = text
+	lbl.Font = Enum.Font.Gotham
+	lbl.TextSize = 14
+	lbl.TextColor3 = Color3.new(1,1,1)
+	yOffset += 20
+	local box = Instance.new("TextBox", frame)
+	box.Size = UDim2.new(0.9, 0, 0, 25)
+	box.Position = UDim2.new(0.05, 0, 0, yOffset)
+	box.Text = default
+	box.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+	box.TextColor3 = Color3.new(1,1,1)
+	box.Font = Enum.Font.Gotham
+	box.TextSize = 14
+	Instance.new("UICorner", box).CornerRadius = UDim.new(0, 6)
+	box.FocusLost:Connect(function() local val=tonumber(box.Text) if val then callback(val) end end)
+	yOffset += 35
+	return box
+end
+
+createBox("WalkSpeed", "16", function(v) char:FindFirstChild("Humanoid").WalkSpeed = v end)
+createBox("JumpPower", "50", function(v) char:FindFirstChild("Humanoid").JumpPower = v end)
+
+-- FLY
+createButton("Fly", function(on)
+	if on then
+		local bv = Instance.new("BodyVelocity", char.HumanoidRootPart)
+		bv.Velocity = Vector3.zero
+		bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+		_G.flyLoop = game:GetService("RunService").RenderStepped:Connect(function()
+			local dir = Vector3.zero
+			if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.W) then dir += workspace.CurrentCamera.CFrame.LookVector end
+			if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.S) then dir -= workspace.CurrentCamera.CFrame.LookVector end
+			if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.A) then dir -= workspace.CurrentCamera.CFrame.RightVector end
+			if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.D) then dir += workspace.CurrentCamera.CFrame.RightVector end
+			bv.Velocity = dir * 60
+		end)
+	else
+		if _G.flyLoop then _G.flyLoop:Disconnect() end
+		for _, v in pairs(char.HumanoidRootPart:GetChildren()) do if v:IsA("BodyVelocity") then v:Destroy() end end
+	end
+end)
+
+-- ESP
+createButton("ESP (TeamCheck)", function(toggle)
+	_G.espOn = toggle
+	if toggle then
+		while _G.espOn do wait(0.5)
+			for _,p in pairs(game.Players:GetPlayers()) do
+				if p~=player and p.Team~=player.Team and p.Character and p.Character:FindFirstChild("Head") and not p.Character.Head:FindFirstChild("esp") then
+					local gui = Instance.new("BillboardGui", p.Character.Head)
+					gui.Name = "esp"
+					gui.Size = UDim2.new(0,100,0,20)
+					gui.AlwaysOnTop = true
+					local txt = Instance.new("TextLabel", gui)
+					txt.Size = UDim2.new(1,0,1,0)
+					txt.BackgroundTransparency = 1
+					txt.Text = p.Name
+					txt.TextColor3 = Color3.fromRGB(255,0,0)
+					txt.TextScaled = true
+				end
+			end
+		end
+	else
+		for _,p in pairs(game.Players:GetPlayers()) do if p.Character and p.Character:FindFirstChild("Head") then local h=p.Character.Head:FindFirstChild("esp") if h then h:Destroy() end end end
+	end
+end)
+
+-- AIMBOT
+createButton("Aimbot (Wallcheck)", function(on)
+	_G.aim = on
+	if on then
+		game:GetService("RunService").RenderStepped:Connect(function()
+			if not _G.aim then return end
+			local closest, dist = nil, math.huge
+			for _, p in pairs(game.Players:GetPlayers()) do
+				if p ~= player and p.Team ~= player.Team and p.Character and p.Character:FindFirstChild("Head") then
+					local ray = Ray.new(workspace.CurrentCamera.CFrame.Position, (p.Character.Head.Position - workspace.CurrentCamera.CFrame.Position).Unit * 999)
+					local hit = workspace:FindPartOnRay(ray, player.Character)
+					if hit and p.Character:IsAncestorOf(hit) then
+						local screenPos = workspace.CurrentCamera:WorldToScreenPoint(p.Character.Head.Position)
+						local mag = (Vector2.new(mouse.X, mouse.Y) - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
+						if mag < dist then closest = p.Character.Head dist = mag end
+					end
+				end
+			end
+			if closest then
+				mousemoverel((workspace.CurrentCamera:WorldToViewportPoint(closest.Position).X - mouse.X)/4,(workspace.CurrentCamera:WorldToViewportPoint(closest.Position).Y - mouse.Y)/4)
+			end
+		end)
+	end
+end)
+
+-- BTOOLS
+createButton("BTools", function(on)
+	if on then for i=1,3 do Instance.new("HopperBin", player.Backpack).BinType = i end end
+end)
+
+-- TP TO PLAYER
+local tpBox = createBox("TP to Player", "PlayerNameHere", function(name)
+	local t = game.Players:FindFirstChild(name)
+	if t and t.Character and t.Character:FindFirstChild("HumanoidRootPart") then char:MoveTo(t.Character.HumanoidRootPart.Position + Vector3.new(0,2,0)) end
+end)
+
+-- LOOP TP
+createButton("Loop TP to Player", function(on)
+	_G.tpLoop = on
+	while _G.tpLoop do
+		local t = game.Players:FindFirstChild(tpBox.Text)
+		if t and t.Character and t.Character:FindFirstChild("HumanoidRootPart") then
+			char:MoveTo(t.Character.HumanoidRootPart.Position + Vector3.new(0,2,0))
+		end
+		wait(1)
+	end
+end)
+
+-- RANDOM TP
+createButton("Random Teleport", function()
+	char:MoveTo(Vector3.new(math.random(-300,300),100,math.random(-300,300)))
+end)
+
+-- INVISIBLE
+createButton("Invisible", function(on)
+	for _,v in pairs(char:GetChildren()) do if v:IsA("BasePart") then v.Transparency = on and 1 or 0 end end
+end)
+
+-- GUN MOD
+createButton("Gun Mod", function(on)
+	if on then
+		for _, tool in pairs(player.Backpack:GetChildren()) do
+			if tool:IsA("Tool") then
+				for _, obj in pairs(tool:GetDescendants()) do
+					if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then obj.Name = "MOD_"..obj.Name end
+				end
+			end
+		end
+	end
+end)
+
+-- NOCLIP
+createButton("Noclip", function(on)
+	_G.noclip = on
+	game:GetService("RunService").Stepped:Connect(function()
+		if _G.noclip then pcall(function() char.Humanoid:ChangeState(11) end) end
+	end)
+end)
+
+-- CHAT SPAMMER
+local spamBox = createBox("Chat Message", "hello world", function() end)
+createButton("Chat Spammer", function(on)
+	_G.chatSpam = on
+	while _G.chatSpam do
+		game.ReplicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer(spamBox.Text, "All")
+		wait(1)
+	end
+end)
+
+-- AUTO MESSAGE
+createButton("Auto Msg", function(on)
+	_G.autoChat = on
+	while _G.autoChat do
+		game.ReplicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer("Join synt.t's discord", "All")
+		wait(3)
+	end
+end)
+
+-- DESTROY GUI
+createButton("Destroy GUI", function() gui:Destroy() end)
